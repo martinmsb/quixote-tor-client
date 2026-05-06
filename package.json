@@ -1,0 +1,50 @@
+{
+  "name": "quixote-tor-client",
+  "version": "0.1.0",
+  "description": "Privacy-preserving GraphQL client for Quixote indexer — routes through Tor when available",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+  },
+  "dependencies": {
+    "graphql": "^16.0.0",
+    "graphql-request": "^7.0.0",
+    "socks": "^2.8.0",
+    "undici": "^7.25.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "tor",
+    "graphql",
+    "privacy",
+    "socks5",
+    "quixote"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
