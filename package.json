@@ -26,8 +26,7 @@
   "dependencies": {
     "graphql": "^16.0.0",
     "graphql-request": "^7.0.0",
-    "socks": "^2.8.0",
-    "undici": "^7.25.0"
+    "socks-proxy-agent": "^10.0.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
