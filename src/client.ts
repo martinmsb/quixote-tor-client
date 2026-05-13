@@ -1,7 +1,7 @@
 import type { GraphQLClient, Variables } from "graphql-request";
 import type { DocumentNode } from "graphql";
 import type { QuixoteClientOptions, TorStatus } from "./types.js";
-import { probeProxy, buildNodeClient } from "./transport/node.js";
+import { probeProxy, buildNodeClient, DEFAULT_PROXY_URL } from "./transport/node.js";
 
 export class QuixoteClient {
   private clientPromise: Promise<{ client: GraphQLClient; status: TorStatus }>;
@@ -11,7 +11,7 @@ export class QuixoteClient {
   }
 
   private async init(): Promise<{ client: GraphQLClient; status: TorStatus }> {
-    const proxyUrl = this.options.proxyUrl ?? "socks5h://127.0.0.1:9050";
+    const proxyUrl = this.options.proxyUrl ?? DEFAULT_PROXY_URL;
     const torAvailable = await probeProxy(proxyUrl);
     return buildNodeClient(this.options, torAvailable);
   }

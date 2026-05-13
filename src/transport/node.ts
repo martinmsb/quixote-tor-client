@@ -4,6 +4,8 @@ import { SocksProxyAgent } from "socks-proxy-agent";
 import { GraphQLClient } from "graphql-request";
 import type { QuixoteClientOptions, TorStatus } from "../types.js";
 
+export const DEFAULT_PROXY_URL = "socks5h://127.0.0.1:9050";
+
 export function buildProxyUrl(base: string, isolate: boolean): string {
   if (!isolate) return base;
   const rand = () => Math.random().toString(36).slice(2);
@@ -26,6 +28,15 @@ function flattenHeaders(headers: HeadersInit | undefined): Record<string, string
   return headers as Record<string, string>;
 }
 
+function normalizeResponseHeaders(headers: http.IncomingHttpHeaders): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (value === undefined) continue;
+    out[key] = Array.isArray(value) ? value.join(", ") : value;
+  }
+  return out;
+}
+
 async function proxyFetch(url: string, proxyUrl: string, init?: RequestInit): Promise<Response> {
   const agent = new SocksProxyAgent(proxyUrl);
   const parsedUrl = new URL(url);
@@ -35,13 +46,17 @@ async function proxyFetch(url: string, proxyUrl: string, init?: RequestInit): Pr
     : parsedUrl.protocol === "https:" ? 443 : 80;
 
   return new Promise<Response>((resolve, reject) => {
+    const body = init?.body != null ? String(init.body) : null;
+    const headers = flattenHeaders(init?.headers);
+    if (body) headers["Content-Length"] = String(Buffer.byteLength(body, "utf8"));
+
     const req = mod.request(
       {
         hostname: parsedUrl.hostname,
         port,
         path: parsedUrl.pathname + parsedUrl.search,
         method: (init?.method as string) ?? "POST",
-        headers: flattenHeaders(init?.headers),
+        headers,
         agent,
       },
       (res) => {
@@ -49,10 +64,10 @@ async function proxyFetch(url: string, proxyUrl: string, init?: RequestInit): Pr
         res.on("data", (chunk: Buffer) => chunks.push(chunk));
         res.on("end", () => {
           resolve(
-            new Response(Buffer.concat(chunks).toString(), {
+            new Response(Buffer.concat(chunks).toString("utf8"), {
               status: res.statusCode ?? 200,
               statusText: res.statusMessage,
-              headers: new Headers(res.headers as Record<string, string>),
+              headers: new Headers(normalizeResponseHeaders(res.headers)),
             })
           );
         });
@@ -60,20 +75,13 @@ async function proxyFetch(url: string, proxyUrl: string, init?: RequestInit): Pr
       }
     );
     req.on("error", reject);
-    if (init?.body) req.write(init.body as string | Buffer);
+    if (body) req.write(body);
     req.end();
   });
 }
 
-type FetchLike = (url: string) => Promise<{ json(): Promise<unknown> }>;
-
-export async function probeProxy(proxyUrl: string, fetchFn?: FetchLike): Promise<boolean> {
+export async function probeProxy(proxyUrl: string): Promise<boolean> {
   try {
-    if (fetchFn) {
-      const res = await fetchFn("https://check.torproject.org/api/ip");
-      const data = await res.json() as { IsTor?: boolean };
-      return data.IsTor === true;
-    }
     const agent = new SocksProxyAgent(proxyUrl);
     return await new Promise<boolean>((resolve) => {
       const req = https.request(
@@ -100,7 +108,7 @@ export function buildNodeClient(
   options: QuixoteClientOptions,
   torAvailable: boolean
 ): { client: GraphQLClient; status: TorStatus } {
-  const { url, proxyUrl = "socks5h://127.0.0.1:9050", isolateStreams = true, strictTor = false } = options;
+  const { url, proxyUrl = DEFAULT_PROXY_URL, isolateStreams = true, strictTor = false } = options;
 
   if (!torAvailable) {
     if (strictTor) throw new Error("Tor proxy unavailable and strictTor is enabled");
