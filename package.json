@@ -2,7 +2,16 @@
   "name": "quixote-tor-client",
   "version": "0.1.0",
   "description": "Privacy-preserving GraphQL client for Quixote indexer — routes through Tor when available",
+  "author": "Martín Sánchez Bermúdez",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/martinmsb/quixote-tor-client"
+  },
+  "homepage": "https://github.com/martinmsb/quixote-tor-client#readme",
+  "bugs": {
+    "url": "https://github.com/martinmsb/quixote-tor-client/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

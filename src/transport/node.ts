@@ -80,12 +80,12 @@ async function proxyFetch(url: string, proxyUrl: string, init?: RequestInit): Pr
   });
 }
 
-export async function probeProxy(proxyUrl: string): Promise<boolean> {
+export async function probeProxy(proxyUrl: string, timeoutMs = 1500): Promise<boolean> {
   try {
     const agent = new SocksProxyAgent(proxyUrl);
     return await new Promise<boolean>((resolve) => {
       const req = https.request(
-        { hostname: "check.torproject.org", path: "/api/ip", agent, timeout: 5000 },
+        { hostname: "check.torproject.org", path: "/api/ip", agent, timeout: timeoutMs },
         (res) => {
           let data = "";
           res.on("data", (chunk: string) => { data += chunk; });
@@ -108,16 +108,18 @@ export function buildNodeClient(
   options: QuixoteClientOptions,
   torAvailable: boolean
 ): { client: GraphQLClient; status: TorStatus } {
-  const { url, proxyUrl = DEFAULT_PROXY_URL, isolateStreams = true, strictTor = false } = options;
+  const { url, onionUrl, proxyUrl = DEFAULT_PROXY_URL, isolateStreams = true, strictTor = false } = options;
 
   if (!torAvailable) {
-    if (strictTor) throw new Error("Tor proxy unavailable and strictTor is enabled");
+    if (strictTor) throw new Error("[quixote-tor-client] Tor proxy unavailable and strictTor is enabled");
+    if (!url) throw new Error("[quixote-tor-client] Tor proxy unavailable and no clearnet url provided");
     console.warn("[quixote-tor-client] Tor unavailable — falling back to clearnet");
     return { client: new GraphQLClient(url), status: "unavailable" };
   }
 
-  const client = new GraphQLClient(url, {
-    fetch: (_input, init) => proxyFetch(url, buildProxyUrl(proxyUrl, isolateStreams), init),
+  const torUrl = onionUrl ?? url!;
+  const client = new GraphQLClient(torUrl, {
+    fetch: (_input, init) => proxyFetch(torUrl, buildProxyUrl(proxyUrl, isolateStreams), init),
   });
 
   return { client, status: "connected" };

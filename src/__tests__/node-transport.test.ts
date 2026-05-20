@@ -32,7 +32,19 @@ function rejectWith(err: Error) {
   mockHttpsRequest.mockImplementation(() => ({
     on: jest.fn((...a: any[]) => { if (a[0] === "error") a[1](err); }),
     end: jest.fn(),
+    destroy: jest.fn(),
   }));
+}
+
+function timeoutWith() {
+  mockHttpsRequest.mockImplementation(() => {
+    const req = {
+      on: jest.fn((...a: any[]) => { if (a[0] === "timeout") a[1](); }),
+      end: jest.fn(),
+      destroy: jest.fn(),
+    };
+    return req;
+  });
 }
 
 // ============================================
@@ -54,6 +66,11 @@ describe("probeProxy", () => {
 
   it("returns false when the connection fails", async () => {
     rejectWith(new Error("ECONNREFUSED"));
+    expect(await probeProxy(DEFAULT_PROXY_URL)).toBe(false);
+  });
+
+  it("returns false when the request times out", async () => {
+    timeoutWith();
     expect(await probeProxy(DEFAULT_PROXY_URL)).toBe(false);
   });
 
@@ -100,6 +117,18 @@ describe("buildNodeClient", () => {
     expect(buildNodeClient(baseOptions(), true).status).toBe("connected");
   });
 
+  it("uses onionUrl as the endpoint when Tor is available", () => {
+    const onionUrl = "http://example.onion/graphql";
+    const { client } = buildNodeClient(baseOptions({ onionUrl }), true);
+    expect((client as any).url).toBe(onionUrl);
+  });
+
+  it("uses clearnet url as the endpoint when Tor is unavailable, ignoring onionUrl", () => {
+    const clearnetUrl = "https://api.example.com/graphql";
+    const { client } = buildNodeClient(baseOptions({ url: clearnetUrl, onionUrl: "http://example.onion/graphql" }), false);
+    expect((client as any).url).toBe(clearnetUrl);
+  });
+
   it("returns unavailable status and logs a warning when falling back to clearnet", () => {
     const { status } = buildNodeClient(baseOptions(), false);
     expect(status).toBe("unavailable");
@@ -107,7 +136,12 @@ describe("buildNodeClient", () => {
   });
 
   it("throws instead of warning when strictTor is true and Tor is unavailable", () => {
-    expect(() => buildNodeClient(baseOptions({ strictTor: true }), false)).toThrow("Tor proxy unavailable");
+    expect(() => buildNodeClient(baseOptions({ strictTor: true }), false)).toThrow("strictTor is enabled");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("throws with a clear message when Tor is unavailable and no url is provided", () => {
+    expect(() => buildNodeClient({ onionUrl: "http://example.onion/graphql" }, false)).toThrow("no clearnet url provided");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 });
